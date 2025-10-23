@@ -23,7 +23,7 @@ DRY_RUN = False
 
 # Set to True to skip image preprocessing (for debugging)
 # When True, sends the original downloaded file directly to printer
-SKIP_PREPROCESSING = True
+SKIP_PREPROCESSING = False
 
 # Create download directory
 DOWNLOAD_DIR.mkdir(exist_ok=True)
@@ -128,8 +128,11 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
             # Canon Selphy CP1500 is an older embedded system that requires:
             # - Baseline DCT encoding (NOT progressive)
             # - Standard JPEG markers
-            # - No fancy optimizations
+            # - Proper DPI metadata
             logger.info(f"Encoding as baseline JPEG for Canon Selphy compatibility...")
+
+            # Note: We're NOT stripping EXIF/ICC anymore - Canon Selphy might need them
+            # Modern phone cameras include sRGB color space and DPI metadata
             canvas.save(
                 output_path,
                 format='JPEG',
@@ -137,8 +140,9 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
                 optimize=False,       # No optimization - keep it simple
                 progressive=False,    # Baseline DCT, NOT progressive
                 subsampling=0,        # 4:4:4 chroma (best quality)
-                icc_profile=None,     # Strip ICC profile for compatibility
-                exif=b''              # Strip EXIF data for compatibility
+                dpi=(300, 300)        # Set DPI metadata (like phone cameras)
+                # NOT stripping ICC profile - printer might need sRGB
+                # NOT stripping EXIF - printer might use orientation data
             )
 
             output_size = output_path.stat().st_size

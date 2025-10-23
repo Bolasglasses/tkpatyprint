@@ -1,0 +1,5 @@
+# HTTP requests for polling the server
+requests==2.32.3
+
+# Image processing for print preparation (4x6" resizing)
+Pillow==11.0.0

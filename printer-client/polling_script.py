@@ -348,10 +348,19 @@ while True:
 
                 if result.returncode == 0:
                     logger.info(f"✅ Print job submitted: {filename}")
+
+                    # Extract job ID from output
+                    job_id = None
                     if result.stdout.strip():
                         logger.info(f"   Job info: {result.stdout.strip()}")
+                        # Try to extract job ID (format: "request id is Canon_SELPHY_CP1500-123")
+                        import re
+                        match = re.search(r'request id is ([^\s]+)', result.stdout)
+                        if match:
+                            job_id = match.group(1)
+                            logger.info(f"   Job ID: {job_id}")
 
-                    # Check print job status
+                    # Check printer status
                     logger.info(f"Checking printer status...")
                     status_result = subprocess.run(
                         ["lpstat", "-p", PRINTER_NAME],
@@ -360,6 +369,33 @@ while True:
                     )
                     if status_result.stdout:
                         logger.info(f"   Printer status: {status_result.stdout.strip()}")
+
+                    # Monitor the job for a few seconds to catch early failures
+                    if job_id:
+                        import time
+                        logger.info(f"Monitoring print job for errors...")
+                        time.sleep(3)  # Wait 3 seconds for job to start processing
+
+                        # Check job status
+                        job_status = subprocess.run(
+                            ["lpstat", "-l", "-W", "completed"],
+                            capture_output=True,
+                            text=True
+                        )
+
+                        if job_id in job_status.stdout:
+                            logger.warning(f"⚠️  Job completed quickly - checking for errors...")
+
+                            # Get CUPS error log
+                            error_log = subprocess.run(
+                                ["sudo", "tail", "-n", "20", "/var/log/cups/error_log"],
+                                capture_output=True,
+                                text=True
+                            )
+                            if error_log.returncode == 0 and error_log.stdout:
+                                logger.error(f"Recent CUPS errors:")
+                                for line in error_log.stdout.strip().split('\n')[-5:]:
+                                    logger.error(f"  {line}")
                 else:
                     logger.error(f"❌ Print command failed: {result.stderr.strip()}")
                     continue  # Don't mark as printed if it failed

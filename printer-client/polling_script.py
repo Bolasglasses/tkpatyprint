@@ -77,19 +77,29 @@ def verify_printer(printer_name: str) -> bool:
 def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
     """
     Preprocess image for Canon Selphy CP1500 4x6" printing.
+    - Handles progressive JPEG, WebP, PNG, and other formats
+    - Re-encodes as baseline JPEG (like 2000s digital cameras)
     - Target size: 1800x1200 pixels (4x6" at 300 DPI)
     - Maintains aspect ratio with letterboxing (no cropping)
     - Adds white borders if needed
     - Auto-rotates based on EXIF
     """
     try:
-        # Open and auto-rotate image based on EXIF orientation
+        # Open image - Pillow will handle any format (JPEG, PNG, WebP, etc.)
         with Image.open(input_path) as img:
+            # Get original format info for logging
+            original_format = img.format
+            original_mode = img.mode
+
+            logger.info(f"Input image: format={original_format}, mode={original_mode}, size={img.size}")
+
             # Auto-rotate based on EXIF data
             img = ImageOps.exif_transpose(img)
 
-            # Convert to RGB if needed (handles RGBA, grayscale, etc.)
+            # Convert to RGB - strips alpha channels, handles grayscale, CMYK, etc.
+            # This is crucial for consistent JPEG encoding
             if img.mode != 'RGB':
+                logger.info(f"Converting from {img.mode} to RGB")
                 img = img.convert('RGB')
 
             # Target dimensions for 4x6" at 300 DPI
@@ -100,30 +110,37 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
             # Calculate scaling to fit image within target dimensions
             img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)
 
-            # Create a white canvas at target size
+            # Create a white canvas at target size (pure RGB white)
             canvas = Image.new('RGB', (target_width, target_height), (255, 255, 255))
 
             # Calculate position to center the image
             x_offset = (target_width - img.width) // 2
             y_offset = (target_height - img.height) // 2
 
-            # Paste the image onto the canvas
+            # Paste the resized image onto the canvas
             canvas.paste(img, (x_offset, y_offset))
 
-            # Save the processed image with Canon Selphy-compatible settings
-            # Canon Selphy prefers baseline JPEG without progressive encoding
+            # Critical: Save as baseline JPEG (like 2000s digital cameras)
+            # Canon Selphy CP1500 is an older embedded system that requires:
+            # - Baseline DCT encoding (NOT progressive)
+            # - Standard JPEG markers
+            # - No fancy optimizations
+            logger.info(f"Encoding as baseline JPEG for Canon Selphy compatibility...")
             canvas.save(
                 output_path,
-                'JPEG',
+                format='JPEG',
                 quality=95,
-                optimize=False,  # Disable optimization for better compatibility
-                progressive=False,  # Disable progressive encoding
-                subsampling=0  # 4:4:4 chroma subsampling for best quality
+                optimize=False,       # No optimization - keep it simple
+                progressive=False,    # Baseline DCT, NOT progressive
+                subsampling=0,        # 4:4:4 chroma (best quality)
+                icc_profile=None,     # Strip ICC profile for compatibility
+                exif=b''              # Strip EXIF data for compatibility
             )
 
-            logger.info(f"Preprocessed image: {input_path.name} -> {output_path.name} "
-                       f"(original: {img.width}x{img.height}, output: {target_width}x{target_height})")
-            logger.info(f"Output file size: {output_path.stat().st_size} bytes")
+            output_size = output_path.stat().st_size
+            logger.info(f"✓ Created baseline JPEG: {output_path.name}")
+            logger.info(f"  Input:  {original_format} {img.size} ({original_mode})")
+            logger.info(f"  Output: JPEG {target_width}x{target_height} (RGB, {output_size:,} bytes)")
 
     except Exception as e:
         logger.error(f"Failed to preprocess image: {e}")

@@ -19,7 +19,7 @@ DOWNLOAD_DIR = Path("/tmp/partyprint")
 PRINTER_NAME = os.getenv("PRINTER_NAME", "Canon_CP1500")
 
 # Set to True to disable actual printing (for development)
-DRY_RUN = True
+DRY_RUN = False
 
 # Create download directory
 DOWNLOAD_DIR.mkdir(exist_ok=True)

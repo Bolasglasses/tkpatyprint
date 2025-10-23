@@ -25,6 +25,15 @@ DRY_RUN = False
 # When True, sends the original downloaded file directly to printer
 SKIP_PREPROCESSING = False
 
+# Image resolution settings for Canon Selphy CP1500
+# Canon Selphy specs: 300 DPI dye-sublimation printer
+# Target: 4x6 inch (postcard size)
+# Options to try if images are too small:
+# - "300dpi": 1800x1200 pixels (standard, should be 4x6")
+# - "600dpi": 3600x2400 pixels (high-res, also 4x6" but more data)
+# - "native": Use whatever the Canon Selphy native resolution is
+IMAGE_RESOLUTION = "300dpi"  # Try "600dpi" if images are too small
+
 # Create download directory
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
@@ -106,10 +115,19 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
                 logger.info(f"Converting from {img.mode} to RGB")
                 img = img.convert('RGB')
 
-            # Target dimensions for 4x6" at 300 DPI
-            # Canon Selphy CP1500 prints at 300x300 DPI
-            target_width = 1800  # 6 inches * 300 DPI
-            target_height = 1200  # 4 inches * 300 DPI
+            # Target dimensions based on IMAGE_RESOLUTION setting
+            if IMAGE_RESOLUTION == "600dpi":
+                # Higher resolution - 600 DPI
+                target_width = 3600   # 6 inches * 600 DPI
+                target_height = 2400  # 4 inches * 600 DPI
+                dpi_value = 600
+                logger.info(f"Using 600 DPI resolution: {target_width}x{target_height}")
+            else:
+                # Standard resolution - 300 DPI
+                target_width = 1800   # 6 inches * 300 DPI
+                target_height = 1200  # 4 inches * 300 DPI
+                dpi_value = 300
+                logger.info(f"Using 300 DPI resolution: {target_width}x{target_height}")
 
             # Calculate scaling to fit image within target dimensions
             img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)
@@ -140,10 +158,12 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
                 optimize=False,       # No optimization - keep it simple
                 progressive=False,    # Baseline DCT, NOT progressive
                 subsampling=0,        # 4:4:4 chroma (best quality)
-                dpi=(300, 300)        # Set DPI metadata (like phone cameras)
+                dpi=(dpi_value, dpi_value)  # Set DPI metadata based on resolution
                 # NOT stripping ICC profile - printer might need sRGB
                 # NOT stripping EXIF - printer might use orientation data
             )
+
+            logger.info(f"  DPI metadata set to: {dpi_value}x{dpi_value}")
 
             output_size = output_path.stat().st_size
             logger.info(f"✓ Created baseline JPEG: {output_path.name}")
@@ -161,6 +181,7 @@ logger.info("=" * 60)
 logger.info(f"API Base: {API_BASE}")
 logger.info(f"Dry Run Mode: {DRY_RUN}")
 logger.info(f"Skip Preprocessing: {SKIP_PREPROCESSING}")
+logger.info(f"Image Resolution: {IMAGE_RESOLUTION}")
 logger.info(f"Download Directory: {DOWNLOAD_DIR}")
 
 # Discover and select printer (even in dry run mode)

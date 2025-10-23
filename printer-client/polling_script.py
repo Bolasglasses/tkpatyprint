@@ -110,11 +110,20 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
             # Paste the image onto the canvas
             canvas.paste(img, (x_offset, y_offset))
 
-            # Save the processed image
-            canvas.save(output_path, 'JPEG', quality=95, optimize=True)
+            # Save the processed image with Canon Selphy-compatible settings
+            # Canon Selphy prefers baseline JPEG without progressive encoding
+            canvas.save(
+                output_path,
+                'JPEG',
+                quality=95,
+                optimize=False,  # Disable optimization for better compatibility
+                progressive=False,  # Disable progressive encoding
+                subsampling=0  # 4:4:4 chroma subsampling for best quality
+            )
 
             logger.info(f"Preprocessed image: {input_path.name} -> {output_path.name} "
                        f"(original: {img.width}x{img.height}, output: {target_width}x{target_height})")
+            logger.info(f"Output file size: {output_path.stat().st_size} bytes")
 
     except Exception as e:
         logger.error(f"Failed to preprocess image: {e}")
@@ -274,6 +283,8 @@ while True:
             else:
                 # Print the preprocessed file with Canon Selphy settings
                 logger.info(f"Sending to printer '{PRINTER_NAME}'...")
+                logger.info(f"Print file: {print_path} ({print_path.stat().st_size} bytes)")
+
                 result = subprocess.run([
                     "lp",
                     "-d", PRINTER_NAME,
@@ -284,11 +295,21 @@ while True:
                 ], capture_output=True, text=True)
 
                 if result.returncode == 0:
-                    logger.info(f"✅ Printed {filename}")
+                    logger.info(f"✅ Print job submitted: {filename}")
                     if result.stdout.strip():
-                        logger.info(f"   Print job: {result.stdout.strip()}")
+                        logger.info(f"   Job info: {result.stdout.strip()}")
+
+                    # Check print job status
+                    logger.info(f"Checking printer status...")
+                    status_result = subprocess.run(
+                        ["lpstat", "-p", PRINTER_NAME],
+                        capture_output=True,
+                        text=True
+                    )
+                    if status_result.stdout:
+                        logger.info(f"   Printer status: {status_result.stdout.strip()}")
                 else:
-                    logger.error(f"❌ Print failed: {result.stderr.strip()}")
+                    logger.error(f"❌ Print command failed: {result.stderr.strip()}")
                     continue  # Don't mark as printed if it failed
 
             printed.add(filename)

@@ -209,7 +209,8 @@ while True:
 
         if filename not in printed:
             logger.info(f"{'[DRY RUN] Would print' if DRY_RUN else 'Printing'} {filename}...")
-            url = f"{API_BASE}/files/{filename}"
+            # Files are stored in S3, not on the API server
+            url = f"https://partyprint.s3.amazonaws.com/{filename}"
 
             # Download original file
             original_path = DOWNLOAD_DIR / filename

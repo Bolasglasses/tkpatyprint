@@ -337,12 +337,10 @@ while True:
                 logger.info(f"Sending to printer '{PRINTER_NAME}'...")
                 logger.info(f"Print file: {print_path} ({print_path.stat().st_size} bytes)")
 
+                # Try minimal options first - let CUPS handle the conversion
                 result = subprocess.run([
                     "lp",
                     "-d", PRINTER_NAME,
-                    "-o", "media=Postcard",      # Canon Selphy uses "Postcard" for 4x6"
-                    "-o", "ColorModel=RGB",      # Ensure RGB color mode for dye-sub
-                    "-o", "print-quality=5",     # Highest quality
                     str(print_path)
                 ], capture_output=True, text=True)
 

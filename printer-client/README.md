@@ -4,14 +4,25 @@ This is the Raspberry Pi client that polls the PartyPrint server for new photos 
 
 ## Setup on Raspberry Pi
 
-### 1. Install Dependencies
+### 1. Create Virtual Environment
 
 ```bash
 cd printer-client
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+```
+
+### 2. Install Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure Printer
+### 3. Configure Printer
 
 Make sure your Canon Selphy CP1500 is connected and configured in CUPS:
 
@@ -23,9 +34,13 @@ lpstat -p -d
 # http://localhost:631
 ```
 
-### 3. Run the Script
+### 4. Run the Script
 
 ```bash
+# Make sure virtual environment is activated
+source venv/bin/activate
+
+# Run the script
 python polling_script.py
 ```
 
@@ -84,7 +99,7 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/tkpatyprint/printer-client
 Environment="PRINTER_NAME=Canon_CP1500"
-ExecStart=/usr/bin/python3 /home/pi/tkpatyprint/printer-client/polling_script.py
+ExecStart=/home/pi/tkpatyprint/printer-client/venv/bin/python /home/pi/tkpatyprint/printer-client/polling_script.py
 Restart=always
 RestartSec=10
 

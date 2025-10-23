@@ -15,6 +15,9 @@ NEXT_JOB_URL = f"{API_BASE}/next-job"
 PRINTED_TRACKER = "/tmp/printed.log"
 DOWNLOAD_DIR = Path("/tmp/partyprint")
 
+# Printer configuration
+PRINTER_NAME = os.getenv("PRINTER_NAME", "Canon_CP1500")
+
 # Set to True to disable actual printing (for development)
 DRY_RUN = True
 
@@ -24,6 +27,52 @@ DOWNLOAD_DIR.mkdir(exist_ok=True)
 printed = set()
 if os.path.exists(PRINTED_TRACKER):
     printed = set(open(PRINTED_TRACKER).read().splitlines())
+
+# Function definitions
+def get_available_printers():
+    """Get list of available CUPS printers"""
+    try:
+        result = subprocess.run(
+            ["lpstat", "-p", "-d"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        printers = []
+        default_printer = None
+
+        for line in result.stdout.split('\n'):
+            line = line.strip()
+            if line.startswith('printer '):
+                # Extract printer name from "printer PrinterName is ..."
+                parts = line.split()
+                if len(parts) >= 2:
+                    printer_name = parts[1]
+                    printers.append(printer_name)
+            elif line.startswith('system default destination:'):
+                # Extract default printer
+                parts = line.split(':')
+                if len(parts) >= 2:
+                    default_printer = parts[1].strip()
+
+        logger.info(f"Available printers: {printers}")
+        if default_printer:
+            logger.info(f"Default printer: {default_printer}")
+
+        return printers, default_printer
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to get printers: {e}")
+        return [], None
+    except Exception as e:
+        logger.error(f"Error getting printers: {e}")
+        return [], None
+
+def verify_printer(printer_name: str) -> bool:
+    """Verify that the specified printer exists"""
+    printers, _ = get_available_printers()
+    return printer_name in printers
 
 def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
     """
@@ -71,6 +120,81 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
         logger.error(f"Failed to preprocess image: {e}")
         raise
 
+# Startup checks
+logger.info("=" * 60)
+logger.info("PartyPrint Polling Service Starting")
+logger.info("=" * 60)
+logger.info(f"API Base: {API_BASE}")
+logger.info(f"Dry Run Mode: {DRY_RUN}")
+logger.info(f"Download Directory: {DOWNLOAD_DIR}")
+
+# Discover and select printer (even in dry run mode)
+logger.info("Scanning for printers...")
+printers, default_printer = get_available_printers()
+
+if not printers:
+    logger.warning("⚠️  No printers found.")
+    if not DRY_RUN:
+        logger.error("❌ Cannot run in print mode without a printer.")
+        logger.error("Please check CUPS configuration and ensure printer is connected.")
+        logger.error("Run 'lpstat -p -d' to check available printers.")
+        exit(1)
+    else:
+        logger.info("Continuing in dry run mode without printer selection...")
+        PRINTER_NAME = "None"
+else:
+    logger.info(f"Found {len(printers)} printer(s):")
+    for i, p in enumerate(printers, 1):
+        marker = " (system default)" if p == default_printer else ""
+        logger.info(f"  {i}. {p}{marker}")
+
+    # Check if PRINTER_NAME env var is set and valid
+    if os.getenv("PRINTER_NAME") and PRINTER_NAME in printers:
+        logger.info(f"Using printer from PRINTER_NAME env var: {PRINTER_NAME}")
+        selected_printer = PRINTER_NAME
+    else:
+        # Interactive selection
+        print()
+        print("=" * 60)
+        while True:
+            try:
+                choice = input(f"Select printer (1-{len(printers)}) or press Enter for default: ").strip()
+
+                if choice == "":
+                    if default_printer and default_printer in printers:
+                        selected_printer = default_printer
+                        print(f"Using system default: {selected_printer}")
+                        break
+                    elif printers:
+                        selected_printer = printers[0]
+                        print(f"Using first printer: {selected_printer}")
+                        break
+
+                choice_idx = int(choice) - 1
+                if 0 <= choice_idx < len(printers):
+                    selected_printer = printers[choice_idx]
+                    print(f"Selected: {selected_printer}")
+                    break
+                else:
+                    print(f"Invalid choice. Please enter a number between 1 and {len(printers)}")
+            except ValueError:
+                print(f"Invalid input. Please enter a number between 1 and {len(printers)}")
+            except KeyboardInterrupt:
+                print("\nCancelled by user")
+                exit(0)
+
+        print("=" * 60)
+        print()
+
+    PRINTER_NAME = selected_printer
+    logger.info(f"✅ Using printer: {PRINTER_NAME}")
+
+if DRY_RUN:
+    logger.info("🚫 Dry run mode enabled - no actual printing will occur")
+
+logger.info("=" * 60)
+
+# Main polling loop
 while True:
     try:
         response = requests.get(NEXT_JOB_URL, timeout=5).json()
@@ -109,16 +233,23 @@ while True:
                 logger.info(f"   Print-ready: {print_path}")
             else:
                 # Print the preprocessed file with Canon Selphy settings
-                logger.info(f"Sending to printer...")
-                subprocess.run([
+                logger.info(f"Sending to printer '{PRINTER_NAME}'...")
+                result = subprocess.run([
                     "lp",
-                    "-d", "Canon_CP1500",
+                    "-d", PRINTER_NAME,
                     "-o", "media=Postcard",      # Canon Selphy uses "Postcard" for 4x6"
                     "-o", "ColorModel=RGB",      # Ensure RGB color mode for dye-sub
                     "-o", "print-quality=5",     # Highest quality
                     str(print_path)
-                ])
-                logger.info(f"✅ Printed {filename}")
+                ], capture_output=True, text=True)
+
+                if result.returncode == 0:
+                    logger.info(f"✅ Printed {filename}")
+                    if result.stdout.strip():
+                        logger.info(f"   Print job: {result.stdout.strip()}")
+                else:
+                    logger.error(f"❌ Print failed: {result.stderr.strip()}")
+                    continue  # Don't mark as printed if it failed
 
             printed.add(filename)
             open(PRINTED_TRACKER, "a").write(filename + "\n")

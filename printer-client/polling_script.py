@@ -21,6 +21,10 @@ PRINTER_NAME = os.getenv("PRINTER_NAME", "Canon_CP1500")
 # Set to True to disable actual printing (for development)
 DRY_RUN = False
 
+# Set to True to skip image preprocessing (for debugging)
+# When True, sends the original downloaded file directly to printer
+SKIP_PREPROCESSING = True
+
 # Create download directory
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
@@ -152,6 +156,7 @@ logger.info("PartyPrint Polling Service Starting")
 logger.info("=" * 60)
 logger.info(f"API Base: {API_BASE}")
 logger.info(f"Dry Run Mode: {DRY_RUN}")
+logger.info(f"Skip Preprocessing: {SKIP_PREPROCESSING}")
 logger.info(f"Download Directory: {DOWNLOAD_DIR}")
 
 # Discover and select printer (even in dry run mode)
@@ -276,22 +281,27 @@ while True:
                 logger.error(f"Failed to download image: {e}")
                 continue
 
-            # Create print-ready version (4x6" at 300 DPI with letterboxing)
-            print_filename = f"print_{filename}"
-            print_path = DOWNLOAD_DIR / print_filename
+            # Decide whether to preprocess or use original
+            if SKIP_PREPROCESSING:
+                logger.info(f"⚠️  SKIP_PREPROCESSING=True - sending original file directly to printer")
+                print_path = original_path
+            else:
+                # Create print-ready version (4x6" at 300 DPI with letterboxing)
+                print_filename = f"print_{filename}"
+                print_path = DOWNLOAD_DIR / print_filename
 
-            logger.info(f"Processing image for 4x6\" printing...")
-            try:
-                preprocess_image_for_print(original_path, print_path)
-            except Exception as e:
-                logger.error(f"Failed to process image: {e}")
-                # Check if the downloaded file is actually HTML (error page)
-                with open(original_path, 'rb') as f:
-                    first_bytes = f.read(100)
-                    if b'<!DOCTYPE' in first_bytes or b'<html' in first_bytes:
-                        logger.error(f"Downloaded file appears to be HTML, not an image!")
-                        logger.error(f"First 100 bytes: {first_bytes}")
-                continue
+                logger.info(f"Processing image for 4x6\" printing...")
+                try:
+                    preprocess_image_for_print(original_path, print_path)
+                except Exception as e:
+                    logger.error(f"Failed to process image: {e}")
+                    # Check if the downloaded file is actually HTML (error page)
+                    with open(original_path, 'rb') as f:
+                        first_bytes = f.read(100)
+                        if b'<!DOCTYPE' in first_bytes or b'<html' in first_bytes:
+                            logger.error(f"Downloaded file appears to be HTML, not an image!")
+                            logger.error(f"First 100 bytes: {first_bytes}")
+                    continue
 
             if DRY_RUN:
                 logger.info(f"🚫 Skipping print command (DRY_RUN=True)")

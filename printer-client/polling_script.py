@@ -215,17 +215,56 @@ while True:
             original_path = DOWNLOAD_DIR / filename
             logger.info(f"Downloading from {url}")
 
-            with open(original_path, "wb") as out:
-                out.write(requests.get(url).content)
+            try:
+                download_response = requests.get(url, timeout=30)
+                download_response.raise_for_status()  # Raise error for bad status codes
 
-            logger.info(f"Downloaded to {original_path}")
+                # Check if we actually got an image
+                content_type = download_response.headers.get('content-type', '')
+                logger.info(f"Downloaded {len(download_response.content)} bytes (content-type: {content_type})")
+
+                if len(download_response.content) == 0:
+                    logger.error(f"Downloaded file is empty!")
+                    continue
+
+                # Save the file
+                with open(original_path, "wb") as out:
+                    out.write(download_response.content)
+
+                logger.info(f"Saved to {original_path}")
+
+                # Verify the file is a valid image
+                if not original_path.exists():
+                    logger.error(f"File was not saved properly!")
+                    continue
+
+                file_size = original_path.stat().st_size
+                logger.info(f"File size on disk: {file_size} bytes")
+
+                if file_size == 0:
+                    logger.error(f"Saved file is empty!")
+                    continue
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to download image: {e}")
+                continue
 
             # Create print-ready version (4x6" at 300 DPI with letterboxing)
             print_filename = f"print_{filename}"
             print_path = DOWNLOAD_DIR / print_filename
 
             logger.info(f"Processing image for 4x6\" printing...")
-            preprocess_image_for_print(original_path, print_path)
+            try:
+                preprocess_image_for_print(original_path, print_path)
+            except Exception as e:
+                logger.error(f"Failed to process image: {e}")
+                # Check if the downloaded file is actually HTML (error page)
+                with open(original_path, 'rb') as f:
+                    first_bytes = f.read(100)
+                    if b'<!DOCTYPE' in first_bytes or b'<html' in first_bytes:
+                        logger.error(f"Downloaded file appears to be HTML, not an image!")
+                        logger.error(f"First 100 bytes: {first_bytes}")
+                continue
 
             if DRY_RUN:
                 logger.info(f"🚫 Skipping print command (DRY_RUN=True)")

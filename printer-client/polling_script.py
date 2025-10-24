@@ -15,8 +15,8 @@ NEXT_JOB_URL = f"{API_BASE}/next-job"
 PRINTED_TRACKER = "/tmp/printed.log"
 DOWNLOAD_DIR = Path("/tmp/partyprint")
 
-# Printer configuration
-PRINTER_NAME = os.getenv("PRINTER_NAME", "Canon_CP1500")
+# Printer configuration (will be auto-detected at startup)
+PRINTER_NAME = os.getenv("PRINTER_NAME", "")
 
 # Set to True to disable actual printing (for development)
 DRY_RUN = False
@@ -204,43 +204,18 @@ else:
         marker = " (system default)" if p == default_printer else ""
         logger.info(f"  {i}. {p}{marker}")
 
-    # Check if PRINTER_NAME env var is set and valid
-    if os.getenv("PRINTER_NAME") and PRINTER_NAME in printers:
-        logger.info(f"Using printer from PRINTER_NAME env var: {PRINTER_NAME}")
-        selected_printer = PRINTER_NAME
+    # Automatic printer selection (no interactive prompt)
+    # Priority: 1) PRINTER_NAME env var, 2) system default, 3) first available
+    env_printer = os.getenv("PRINTER_NAME")
+    if env_printer and env_printer in printers:
+        selected_printer = env_printer
+        logger.info(f"Using printer from PRINTER_NAME env var: {selected_printer}")
+    elif default_printer and default_printer in printers:
+        selected_printer = default_printer
+        logger.info(f"Using system default printer: {selected_printer}")
     else:
-        # Interactive selection
-        print()
-        print("=" * 60)
-        while True:
-            try:
-                choice = input(f"Select printer (1-{len(printers)}) or press Enter for default: ").strip()
-
-                if choice == "":
-                    if default_printer and default_printer in printers:
-                        selected_printer = default_printer
-                        print(f"Using system default: {selected_printer}")
-                        break
-                    elif printers:
-                        selected_printer = printers[0]
-                        print(f"Using first printer: {selected_printer}")
-                        break
-
-                choice_idx = int(choice) - 1
-                if 0 <= choice_idx < len(printers):
-                    selected_printer = printers[choice_idx]
-                    print(f"Selected: {selected_printer}")
-                    break
-                else:
-                    print(f"Invalid choice. Please enter a number between 1 and {len(printers)}")
-            except ValueError:
-                print(f"Invalid input. Please enter a number between 1 and {len(printers)}")
-            except KeyboardInterrupt:
-                print("\nCancelled by user")
-                exit(0)
-
-        print("=" * 60)
-        print()
+        selected_printer = printers[0]
+        logger.info(f"Using first available printer: {selected_printer}")
 
     PRINTER_NAME = selected_printer
     logger.info(f"✅ Using printer: {PRINTER_NAME}")

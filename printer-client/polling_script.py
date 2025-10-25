@@ -23,7 +23,7 @@ DRY_RUN = False
 
 # Set to True to skip image preprocessing (for debugging)
 # When True, sends the original downloaded file directly to printer
-SKIP_PREPROCESSING = True
+SKIP_PREPROCESSING = False
 
 # Image resolution settings for Canon Selphy CP1500
 # Canon Selphy specs: 300 DPI dye-sublimation printer

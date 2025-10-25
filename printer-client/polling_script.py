@@ -115,19 +115,30 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
                 logger.info(f"Converting from {img.mode} to RGB")
                 img = img.convert('RGB')
 
+            # Detect portrait vs landscape orientation
+            is_portrait = img.height > img.width
+
             # Target dimensions based on IMAGE_RESOLUTION setting
             if IMAGE_RESOLUTION == "600dpi":
                 # Higher resolution - 600 DPI
-                target_width = 3600   # 6 inches * 600 DPI
-                target_height = 2400  # 4 inches * 600 DPI
+                base_width = 3600   # 6 inches * 600 DPI
+                base_height = 2400  # 4 inches * 600 DPI
                 dpi_value = 600
-                logger.info(f"Using 600 DPI resolution: {target_width}x{target_height}")
             else:
                 # Standard resolution - 300 DPI
-                target_width = 1800   # 6 inches * 300 DPI
-                target_height = 1200  # 4 inches * 300 DPI
+                base_width = 1800   # 6 inches * 300 DPI
+                base_height = 1200  # 4 inches * 300 DPI
                 dpi_value = 300
-                logger.info(f"Using 300 DPI resolution: {target_width}x{target_height}")
+
+            # Swap dimensions for portrait photos
+            if is_portrait:
+                target_width = base_height   # 4 inches (narrower)
+                target_height = base_width   # 6 inches (taller)
+                logger.info(f"Portrait orientation detected: {target_width}x{target_height} at {dpi_value} DPI")
+            else:
+                target_width = base_width
+                target_height = base_height
+                logger.info(f"Landscape orientation detected: {target_width}x{target_height} at {dpi_value} DPI")
 
             # Calculate scaling to fit image within target dimensions
             img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)

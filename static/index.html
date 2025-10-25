@@ -382,7 +382,12 @@
     <input type="text" id="username" placeholder="Enter your mortal name..." />
 
     <video id="preview" autoplay playsinline muted></video>
+    <img id="preview-img" style="display: none;" />
     <button id="captureBtn">👻 Capture Your Soul</button>
+    <div id="confirmButtons" style="display: none; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+      <button id="printBtn" style="margin: 0;">🔥 Print This Soul!</button>
+      <button id="cancelBtn" class="btn-secondary" style="margin: 0;">👻 Cancel</button>
+    </div>
 
     <div class="divider">or summon from device</div>
 
@@ -420,10 +425,15 @@
 
   <script>
     const video = document.getElementById('preview');
+    const previewImg = document.getElementById('preview-img');
     const captureBtn = document.getElementById('captureBtn');
+    const confirmButtons = document.getElementById('confirmButtons');
+    const printBtn = document.getElementById('printBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
     const sendBtn = document.getElementById('sendBtn');
     const fileInput = document.getElementById('file');
     let queueOpen = false;
+    let pendingFormData = null;
 
     async function initCamera() {
       try {
@@ -467,23 +477,70 @@
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
       const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
-      const formData = new FormData();
-      formData.append('image', blob, `capture_${Date.now()}.jpg`);
-      formData.append('user', document.getElementById('username').value || 'Anonymous');
-      await upload(formData);
+
+      // Show preview in place of video
+      const previewUrl = URL.createObjectURL(blob);
+      showPrintConfirmation(previewUrl, blob, `capture_${Date.now()}.jpg`);
     });
 
     sendBtn.addEventListener('click', async () => {
       if (!fileInput.files.length) return alert('Select an image first!');
-      const formData = new FormData();
-      formData.append('image', fileInput.files[0]);
-      formData.append('user', document.getElementById('username').value || 'Anonymous');
-      await upload(formData);
+      const file = fileInput.files[0];
+
+      // Show preview in place of video
+      const previewUrl = URL.createObjectURL(file);
+      showPrintConfirmation(previewUrl, file, file.name);
     });
+
+    printBtn.addEventListener('click', async () => {
+      if (!pendingFormData) return;
+      await upload(pendingFormData);
+      restoreCameraView();
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      restoreCameraView();
+      document.getElementById('result').innerHTML = `
+        <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #666; padding: 1rem; border-radius: 8px; border: 2px solid #555; text-align: center;">
+          👻 Cancelled. No souls were harmed.
+        </div>
+      `;
+      setTimeout(() => {
+        document.getElementById('result').innerHTML = '';
+      }, 2000);
+    });
+
+    function showPrintConfirmation(previewUrl, imageBlob, filename) {
+      const userName = document.getElementById('username').value || 'Anonymous';
+
+      // Hide video and capture button, show preview and confirm buttons
+      video.style.display = 'none';
+      captureBtn.style.display = 'none';
+      previewImg.src = previewUrl;
+      previewImg.style.display = 'block';
+      confirmButtons.style.display = 'grid';
+
+      // Store the pending upload data
+      pendingFormData = new FormData();
+      pendingFormData.append('image', imageBlob, filename);
+      pendingFormData.append('user', userName);
+    }
+
+    function restoreCameraView() {
+      // Show video and capture button, hide preview and confirm buttons
+      video.style.display = 'block';
+      captureBtn.style.display = 'block';
+      previewImg.style.display = 'none';
+      confirmButtons.style.display = 'none';
+      pendingFormData = null;
+      fileInput.value = '';
+    }
 
     async function upload(formData) {
       sendBtn.disabled = true;
       captureBtn.disabled = true;
+      printBtn.disabled = true;
+
       const res = await fetch('/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.ok) {
@@ -492,11 +549,10 @@
             💀 Soul captured from <strong>${data.user}</strong>! Sending to the darkness... 🔥
           </div>
         `;
-        fileInput.value = '';
         refreshQueue();
         refreshGallery();
 
-        // Clear success message after 3 seconds
+        // Clear after 3 seconds
         setTimeout(() => {
           document.getElementById('result').innerHTML = '';
         }, 3000);
@@ -505,6 +561,7 @@
       }
       sendBtn.disabled = false;
       captureBtn.disabled = false;
+      printBtn.disabled = false;
     }
 
     async function refreshQueue() {
@@ -512,7 +569,7 @@
       const data = await res.json();
       const html = data.jobs.map(
         (j, i) =>
-          `<div class="job ${j.done ? 'done' : ''}">🔥 ${j.done ? '☠️' : '👹'} ${j.user || 'Unknown Soul'}</div>`
+          `<div class="job ${j.done ? 'done' : ''}">🔥 ${j.done ? '☠️' : '👹'} ${j.user || 'Unknown Soul'} - ${j.filename}</div>`
       ).join('');
       document.getElementById('queueList').innerHTML = html || '<p style="color:#666;text-align:center;">The void is empty... for now.</p>';
     }

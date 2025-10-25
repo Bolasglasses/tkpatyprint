@@ -34,6 +34,10 @@ SKIP_PREPROCESSING = False
 # - "native": Use whatever the Canon Selphy native resolution is
 IMAGE_RESOLUTION = "300dpi"  # Try "600dpi" if images are too small
 
+# Border width in inches (white border around image for classic photo look)
+# 0.25 inch = quarter inch border on all sides
+BORDER_INCHES = 0.25
+
 # Create download directory
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
@@ -140,17 +144,25 @@ def preprocess_image_for_print(input_path: Path, output_path: Path) -> None:
                 target_height = base_height
                 logger.info(f"Landscape orientation detected: {target_width}x{target_height} at {dpi_value} DPI")
 
-            # Calculate scaling to fit image within target dimensions
-            img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)
+            # Calculate border size in pixels
+            border_pixels = int(BORDER_INCHES * dpi_value)
+            logger.info(f"Adding {BORDER_INCHES}\" border ({border_pixels} pixels on each side)")
 
-            # Create a white canvas at target size (pure RGB white)
+            # Reduce available area by border on all sides
+            available_width = target_width - (2 * border_pixels)
+            available_height = target_height - (2 * border_pixels)
+
+            # Calculate scaling to fit image within available area (inside border)
+            img.thumbnail((available_width, available_height), Image.Resampling.LANCZOS)
+
+            # Create a white canvas at full target size (pure RGB white)
             canvas = Image.new('RGB', (target_width, target_height), (255, 255, 255))
 
-            # Calculate position to center the image
+            # Calculate position to center the image (accounting for border)
             x_offset = (target_width - img.width) // 2
             y_offset = (target_height - img.height) // 2
 
-            # Paste the resized image onto the canvas
+            # Paste the resized image onto the canvas (centered with border)
             canvas.paste(img, (x_offset, y_offset))
 
             # Critical: Save as baseline JPEG (like 2000s digital cameras)
@@ -193,6 +205,7 @@ logger.info(f"API Base: {API_BASE}")
 logger.info(f"Dry Run Mode: {DRY_RUN}")
 logger.info(f"Skip Preprocessing: {SKIP_PREPROCESSING}")
 logger.info(f"Image Resolution: {IMAGE_RESOLUTION}")
+logger.info(f"Border Width: {BORDER_INCHES} inches")
 logger.info(f"Download Directory: {DOWNLOAD_DIR}")
 
 # Discover and select printer (even in dry run mode)

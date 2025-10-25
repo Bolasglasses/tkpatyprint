@@ -36,7 +36,7 @@ IMAGE_RESOLUTION = "300dpi"  # Try "600dpi" if images are too small
 
 # Border width in inches (white border around image for classic photo look)
 # 0.25 inch = quarter inch border on all sides
-BORDER_INCHES = 0.25
+BORDER_INCHES = 0.125
 
 # Create download directory
 DOWNLOAD_DIR.mkdir(exist_ok=True)

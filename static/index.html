@@ -3,42 +3,415 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PartyPrint Demo</title>
+  <title>SpawnPrint 🎃</title>
   <style>
-    body { font-family: system-ui, sans-serif; text-align: center; margin: 2rem auto; max-width: 640px; }
-    video, img, canvas { width: 100%; max-width: 320px; margin: 1rem auto; border-radius: 8px; display: block; }
-    button { padding: .6rem 1.2rem; border: none; background: #000; color: #fff; border-radius: 6px; cursor: pointer; }
-    button:disabled { opacity: .6; cursor: not-allowed; }
-    input[type=text] { padding: .5rem; border: 1px solid #ccc; border-radius: 4px; width: 200px; margin: .5rem; }
-    .queue, .gallery { text-align: left; margin-top: 2rem; border-top: 1px solid #ccc; padding-top: 1rem; }
-    .job { margin: .25rem 0; }
-    .done { opacity: .5; text-decoration: line-through; }
-    .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .5rem; }
-    .gallery-grid img { width: 100%; border-radius: 6px; }
-    h3 { margin-bottom: .5rem; }
+    @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Metal+Mania&display=swap');
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      max-width: 640px;
+      margin: 0 auto;
+      background: linear-gradient(180deg, #0a0a0a 0%, #1a0a0a 100%);
+      min-height: 100vh;
+      background-attachment: fixed;
+    }
+
+    .header {
+      text-align: center;
+      background: linear-gradient(135deg, #8B0000 0%, #DC143C 50%, #000000 100%);
+      color: white;
+      padding: 2rem 1rem;
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 30px rgba(220, 20, 60, 0.5), 0 0 60px rgba(0, 255, 0, 0.2);
+      border: 2px solid #DC143C;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '🎃';
+      position: absolute;
+      top: 10px;
+      left: 20px;
+      font-size: 2rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .header::after {
+      content: '👶';
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 2rem;
+      animation: float 3s ease-in-out infinite 1.5s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 2.5rem;
+      font-family: 'Metal Mania', cursive;
+      text-shadow: 0 0 10px #00ff00, 0 0 20px #DC143C, 2px 2px 4px #000;
+      letter-spacing: 2px;
+    }
+
+    .header p {
+      margin: 0.5rem 0 0;
+      opacity: 0.95;
+      font-size: 1.1rem;
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    .card {
+      background: linear-gradient(145deg, #1a1a1a 0%, #2d2d2d 100%);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 20px rgba(220, 20, 60, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      border: 1px solid #DC143C;
+      color: #e0e0e0;
+    }
+
+    .card h3 {
+      color: #DC143C;
+      text-shadow: 0 0 10px rgba(220, 20, 60, 0.5);
+    }
+
+    input[type=text], input[type=file] {
+      padding: 0.75rem;
+      border: 2px solid #DC143C;
+      border-radius: 8px;
+      width: 100%;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+      background: #0a0a0a;
+      color: #00ff00;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+    }
+
+    input[type=text]:focus, input[type=file]:focus {
+      outline: none;
+      border-color: #00ff00;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+    }
+
+    input[type=text]::placeholder {
+      color: #666;
+    }
+
+    video, #preview-img {
+      width: 100%;
+      max-width: 100%;
+      border-radius: 8px;
+      display: block;
+      background: #000;
+      margin-bottom: 1rem;
+      border: 2px solid #DC143C;
+      box-shadow: 0 0 20px rgba(220, 20, 60, 0.4);
+    }
+
+    button {
+      padding: 1rem 1.5rem;
+      border: 2px solid #DC143C;
+      background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      width: 100%;
+      margin-bottom: 0.75rem;
+      transition: all 0.2s;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 0 15px rgba(220, 20, 60, 0.5), 0 4px 6px rgba(0,0,0,0.3);
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    button:active {
+      background: linear-gradient(135deg, #DC143C 0%, #8B0000 100%);
+      transform: scale(0.98);
+      box-shadow: 0 0 25px rgba(220, 20, 60, 0.8), 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      border: 2px solid #00ff00;
+      box-shadow: 0 0 15px rgba(0, 255, 0, 0.3), 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    .btn-secondary:active {
+      background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+      box-shadow: 0 0 25px rgba(0, 255, 0, 0.6), 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .collapsible-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.5rem 0;
+      margin-bottom: 0.5rem;
+    }
+
+    .collapsible-header h3 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .toggle-icon {
+      font-size: 1.2rem;
+      transition: transform 0.3s;
+      color: #DC143C;
+      text-shadow: 0 0 5px rgba(220, 20, 60, 0.5);
+    }
+
+    .toggle-icon.open {
+      transform: rotate(180deg);
+      color: #00ff00;
+      text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    }
+
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .collapsible-content.open {
+      max-height: 500px;
+    }
+
+    .job {
+      padding: 0.5rem;
+      margin: 0.25rem 0;
+      background: #0a0a0a;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      border-left: 3px solid #DC143C;
+      color: #00ff00;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .done {
+      opacity: 0.5;
+      text-decoration: line-through;
+      border-left-color: #555;
+      color: #666;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .gallery-grid .photo {
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+      border-radius: 8px;
+      aspect-ratio: 1;
+      border: 2px solid #DC143C;
+      box-shadow: 0 0 15px rgba(220, 20, 60, 0.3);
+      transition: all 0.2s;
+    }
+
+    .gallery-grid .photo:hover {
+      box-shadow: 0 0 25px rgba(220, 20, 60, 0.6), 0 0 35px rgba(0, 255, 0, 0.2);
+    }
+
+    .gallery-grid img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 6px;
+      transition: transform 0.2s;
+    }
+
+    .gallery-grid .photo:active img {
+      transform: scale(0.95);
+    }
+
+    .photo-user {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(220, 20, 60, 0.9), transparent);
+      color: white;
+      padding: 0.5rem;
+      font-size: 0.75rem;
+      text-align: center;
+      font-weight: 600;
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    .success-message {
+      background: linear-gradient(135deg, #0a5000 0%, #0d7000 100%);
+      color: #00ff00;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      animation: slideIn 0.3s ease, glow 2s ease-in-out infinite;
+      border: 2px solid #00ff00;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+      text-shadow: 0 0 5px rgba(0, 255, 0, 0.8);
+    }
+
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); }
+      50% { box-shadow: 0 0 30px rgba(0, 255, 0, 0.8); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Lightbox Modal */
+    .lightbox {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      z-index: 1000;
+      padding: 1rem;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .lightbox.open {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lightbox img {
+      max-width: 100%;
+      max-height: 80vh;
+      border-radius: 8px;
+      object-fit: contain;
+      border: 3px solid #DC143C;
+      box-shadow: 0 0 40px rgba(220, 20, 60, 0.6), 0 0 60px rgba(0, 255, 0, 0.3);
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
+      color: white;
+      border: 2px solid #DC143C;
+      font-size: 2rem;
+      width: 3rem;
+      height: 3rem;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(220, 20, 60, 0.6);
+      transition: all 0.2s;
+    }
+
+    .lightbox-close:hover {
+      box-shadow: 0 0 30px rgba(220, 20, 60, 0.9);
+      transform: scale(1.1);
+    }
+
+    .lightbox-user {
+      color: #00ff00;
+      margin-top: 1rem;
+      font-size: 1.1rem;
+      text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+      font-weight: 600;
+    }
+
+    .divider {
+      text-align: center;
+      margin: 1.5rem 0;
+      color: #DC143C;
+      font-size: 0.9rem;
+      position: relative;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '⛓️';
+      margin: 0 0.5rem;
+    }
+
+    @media (max-width: 480px) {
+      .header h1 { font-size: 2rem; }
+      .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    }
   </style>
 </head>
 <body>
-  <h1>📸 PartyPrint</h1>
-  <p>Snap → Upload → Print → Share!</p>
-
-  <input type="text" id="username" placeholder="Your name (optional)" />
-  <video id="preview" autoplay playsinline muted></video>
-  <button id="captureBtn">🎞️ Take Photo</button>
-
-  <p>or upload from your device:</p>
-  <input type="file" id="file" accept="image/*" />
-  <button id="sendBtn">Upload</button>
-  <div id="result"></div>
-
-  <div class="queue">
-    <h3>🖨️ Print Queue</h3>
-    <div id="queueList">Loading...</div>
+  <div class="header">
+    <h1>👹 SPAWNPRINT 👶</h1>
+    <p>Capture the Dark Memories... A New Spawn Rises! 🎃</p>
   </div>
 
-  <div class="gallery">
-    <h3>🎉 Party Gallery</h3>
-    <div id="galleryGrid" class="gallery-grid">Loading...</div>
+  <div class="card">
+    <input type="text" id="username" placeholder="Enter your mortal name..." />
+
+    <video id="preview" autoplay playsinline muted></video>
+    <button id="captureBtn">👻 Capture Your Soul</button>
+
+    <div class="divider">or summon from device</div>
+
+    <input type="file" id="file" accept="image/*" />
+    <button id="sendBtn" class="btn-secondary">💀 Upload to the Void</button>
+
+    <div id="result"></div>
+  </div>
+
+  <div class="card">
+    <div class="collapsible-header" onclick="toggleQueue()">
+      <h3>🔥 Hellspawn Queue</h3>
+      <span class="toggle-icon" id="queueToggle">▼</span>
+    </div>
+    <div class="collapsible-content" id="queueContent">
+      <div id="queueList">Loading the damned...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top: 0;">🎃 Spawn Gallery of Souls</h3>
+    <div id="galleryGrid" class="gallery-grid">Summoning spirits...</div>
+  </div>
+
+  <!-- Lightbox Modal -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">×</button>
+    <img id="lightboxImg" src="" alt="" />
+    <div class="lightbox-user" id="lightboxUser"></div>
   </div>
 
   <script>
@@ -46,14 +419,42 @@
     const captureBtn = document.getElementById('captureBtn');
     const sendBtn = document.getElementById('sendBtn');
     const fileInput = document.getElementById('file');
+    let queueOpen = false;
 
     async function initCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' }
+        });
         video.srcObject = stream;
       } catch {
-        document.getElementById('captureBtn').style.display = 'none';
+        captureBtn.style.display = 'none';
+        video.style.display = 'none';
       }
+    }
+
+    function toggleQueue() {
+      queueOpen = !queueOpen;
+      const content = document.getElementById('queueContent');
+      const toggle = document.getElementById('queueToggle');
+
+      if (queueOpen) {
+        content.classList.add('open');
+        toggle.classList.add('open');
+      } else {
+        content.classList.remove('open');
+        toggle.classList.remove('open');
+      }
+    }
+
+    function openLightbox(imgSrc, userName) {
+      document.getElementById('lightboxImg').src = imgSrc;
+      document.getElementById('lightboxUser').textContent = userName;
+      document.getElementById('lightbox').classList.add('open');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
     }
 
     captureBtn.addEventListener('click', async () => {
@@ -83,11 +484,18 @@
       const data = await res.json();
       if (data.ok) {
         document.getElementById('result').innerHTML = `
-          <p>✅ Uploaded by <strong>${data.user}</strong></p>
-          <img src="${data.path}" />
+          <div class="success-message">
+            💀 Soul captured from <strong>${data.user}</strong>! Sending to the darkness... 🔥
+          </div>
         `;
+        fileInput.value = '';
         refreshQueue();
         refreshGallery();
+
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          document.getElementById('result').innerHTML = '';
+        }, 3000);
       } else {
         alert('Upload failed');
       }
@@ -100,40 +508,37 @@
       const data = await res.json();
       const html = data.jobs.map(
         (j, i) =>
-          `<div class="job ${j.done ? 'done' : ''}">#${i+1} — ${j.filename} (${j.user || 'Anonymous'})</div>`
+          `<div class="job ${j.done ? 'done' : ''}">🔥 ${j.done ? '☠️' : '👹'} ${j.user || 'Unknown Soul'}</div>`
       ).join('');
-      document.getElementById('queueList').innerHTML = html || 'No jobs yet.';
+      document.getElementById('queueList').innerHTML = html || '<p style="color:#666;text-align:center;">The void is empty... for now.</p>';
     }
 
-async function refreshGallery() {
-  try {
-    const res = await fetch('/gallery');
-    const data = await res.json();
+    async function refreshGallery() {
+      try {
+        const res = await fetch('/gallery');
+        const data = await res.json();
 
-    console.log("Gallery response:", data); // ✅ See what’s returned
+        const images = data.images || [];
+        if (!images.length) {
+          document.getElementById('galleryGrid').innerHTML = '<p style="text-align:center;color:#666;">No souls have been captured yet... 👻</p>';
+          return;
+        }
 
-    const images = data.images || [];
-    if (!images.length) {
-      document.getElementById('galleryGrid').innerHTML = '<p>No photos yet.</p>';
-      return;
+        // Generate gallery HTML with click handlers
+        const html = images.map(
+          img => `
+            <div class="photo" onclick="openLightbox('${img.path}', '${img.user}')">
+              <img src="${img.path}" alt="${img.user}" />
+              <div class="photo-user">${img.user}</div>
+            </div>`
+        ).join('');
+
+        document.getElementById('galleryGrid').innerHTML = html;
+      } catch (err) {
+        console.error("Gallery refresh error:", err);
+        document.getElementById('galleryGrid').innerHTML = '<p style="text-align:center;color:#999;">⚠️ Unable to load gallery</p>';
+      }
     }
-
-    // Generate gallery HTML
-    const html = images.map(
-      img => `
-        <div class="photo">
-          <img src="${img.path}" alt="${img.user}" title="${img.user}" />
-          <div style="font-size:.8rem; text-align:center; color:#666;">${img.user}</div>
-        </div>`
-    ).join('');
-
-    document.getElementById('galleryGrid').innerHTML = html;
-  } catch (err) {
-    console.error("Gallery refresh error:", err);
-    document.getElementById('galleryGrid').innerHTML = '<p>⚠️ Gallery error</p>';
-  }
-}
-
 
     initCamera();
     refreshQueue();
